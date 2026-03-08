@@ -82,12 +82,11 @@ void DaikinMadoka::control(const ClimateCall &call) {
     }
     this->query_(CMD_SET_SETTING_STATUS, std::vector<uint8_t>{0x20, 0x01, (uint8_t) status_out}, 200);
   }
-  if (call.get_target_temperature_low().has_value() && call.get_target_temperature_high().has_value()) {
-    uint16_t target_low = *call.get_target_temperature_low() * 128;
-    uint16_t target_high = *call.get_target_temperature_high() * 128;
+  if (call.get_target_temperature().has_value()) {
+    uint16_t target = *call.get_target_temperature() * 128;
     this->query_(CMD_SET_SETPOINT,
-                 std::vector<uint8_t>{0x20, 0x02, (uint8_t) ((target_high >> 8) & 0xFF), (uint8_t) (target_high & 0xFF),
-                                      0x21, 0x02, (uint8_t) ((target_low >> 8) & 0xFF), (uint8_t) (target_low & 0xFF)},
+                 std::vector<uint8_t>{0x20, 0x02, (uint8_t) ((target >> 8) & 0xFF), (uint8_t) (target & 0xFF),
+                                      0x21, 0x02, (uint8_t) ((target >> 8) & 0xFF), (uint8_t) (target & 0xFF)},
                  400);
   }
   if (call.get_fan_mode().has_value()) {
@@ -360,17 +359,9 @@ void DaikinMadoka::parse_cb_(std::vector<uint8_t> msg) {
       while (i < message_size) {
         uint8_t argument_id = msg[i++];
         uint8_t len = msg[i++];
-        switch (argument_id) {
-          case 0x20: {
-            std::vector<uint8_t> val(msg.begin() + i, msg.begin() + i + len);
-            this->target_temperature_high = (float) (val[0] << 8 | val[1]) / 128;
-            break;
-          }
-          case 0x21: {
-            std::vector<uint8_t> val(msg.begin() + i, msg.begin() + i + len);
-            this->target_temperature_low = (float) (val[0] << 8 | val[1]) / 128;
-            break;
-          }
+        if (argument_id == 0x20) {
+          std::vector<uint8_t> val(msg.begin() + i, msg.begin() + i + len);
+          this->target_temperature = (float) (val[0] << 8 | val[1]) / 128;
         }
         i += len;
       }
